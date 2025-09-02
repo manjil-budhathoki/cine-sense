@@ -3,12 +3,13 @@ from django.conf import settings
 import os
 
 
+
 from rest_framework import status, generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 
-from .serializers import UserSerializer, WatchlistItemSerializer
+from .serializers import UserSerializer, WatchlistItemSerializer,RegisterSerializer, UserUpdateSerializer, AdminUserUpdateSerializer
 from .models import WatchlistItem
 from .tmdb_service import get_movie_details
 
@@ -18,6 +19,13 @@ import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from torch.nn.functional import sigmoid
 from sklearn.metrics.pairwise import cosine_similarity
+
+from django.contrib.auth.models import User
+from django.utils import timezone
+from datetime import timedelta
+from django.db.models import Count
+
+from .permissions import IsAdminUser
 
 # ==============================================================================
 #  LOAD ALL ML ASSETS (runs once when the server starts)
@@ -93,12 +101,21 @@ class RegisterView(APIView):
 
 
     def post(self, request):
-        serializer = UserSerializer(data=request.data)
+        serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+class ProfileView(generics.RetrieveUpdateAPIView):
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return UserUpdateSerializer # Correctly uses the update serializer
+        return UserSerializer # Correctly uses the read serializer
+
+    def get_object(self):
+        return self.request.user
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
@@ -203,3 +220,81 @@ class RecommendationView(APIView):
         }
             
         return Response(final_response)
+
+
+# ==============================================================================
+#  NEW: ADMIN DASHBOARD VIEW
+# ==============================================================================
+class AdminDashboardStatsView(APIView):
+    """
+    An API view that provides statistics for the admin dashboard.
+    Access is restricted to users with is_staff=True.
+    """
+    # --- THIS IS THE KEY SECURITY STEP ---
+    # We apply our custom permission class to this view.
+    # DRF will now automatically use our 'IsAdminUser' class to check
+    # permissions before allowing any request to proceed.
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        """
+        Handles GET requests to gather and return application statistics.
+        """
+        # --- Query 1: Total number of registered users ---
+        total_users = User.objects.count()
+
+        # --- Query 2: Number of users who registered in the last 7 days ---
+        seven_days_ago = timezone.now() - timedelta(days=7)
+        new_users_last_week = User.objects.filter(date_joined__gte=seven_days_ago).count()
+
+        # --- Query 3: Total number of items added to all watchlists ---
+        total_watchlist_items = WatchlistItem.objects.count()
+
+        # --- Query 4: Top 5 most frequently watchlisted movies ---
+        # This is an aggregation query.
+        top_movies = WatchlistItem.objects.values('title', 'poster_path') \
+            .annotate(count=Count('title')) \
+            .order_by('-count')[:5]
+
+        # Assemble the final data into a dictionary for the JSON response
+        stats = {
+            'total_users': total_users,
+            'new_users_last_week': new_users_last_week,
+            'total_watchlist_items': total_watchlist_items,
+            'top_watchlisted_movies': list(top_movies) # Convert the QuerySet to a list
+        }
+
+        return Response(stats)
+
+
+
+# ==============================================================================
+#  NEW: VIEW FOR LISTING ALL USERS (ADMIN ONLY)
+# ==============================================================================
+class UserListView(generics.ListAPIView):
+    """
+    Provides a list of all users. Access is restricted to admin users.
+    """
+    queryset = User.objects.all().order_by('-date_joined')
+    serializer_class = UserSerializer # Our existing serializer is perfect for this
+    permission_classes = [IsAdminUser] # Protected by our admin permission
+
+
+# ==============================================================================
+#  NEW: VIEW FOR MANAGING A SINGLE USER (ADMIN ONLY)
+# ==============================================================================
+class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Provides retrieve, update, and delete functionality for a single user.
+    Access is restricted to admin users.
+    """
+    queryset = User.objects.all()
+    permission_classes = [IsAdminUser]
+
+    # Use different serializers for GET vs. PATCH/PUT
+    def get_serializer_class(self):
+        if self.request.method == 'GET':
+            # For viewing, use the detailed serializer with profile info
+            return UserSerializer
+        # For updating, use the simpler serializer that only allows role changes
+        return AdminUserUpdateSerializer

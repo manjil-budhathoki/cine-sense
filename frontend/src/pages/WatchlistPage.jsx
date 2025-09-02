@@ -1,82 +1,95 @@
-import React, { useState, useEffect } from 'react';
-import { getWatchlist } from '../services/api';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../hooks/AuthContext'; // Import the context
 import MovieCard from '../components/MovieCard';
 import { motion } from 'framer-motion';
+import { Film } from 'lucide-react';
 
 const WatchlistPage = () => {
-  const [watchlist, setWatchlist] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // --- KEY LOGIC CHANGE ---
+  // Get the global watchlist array and the global loading state directly from the context.
+  // There is no need for local useState or useEffect for data fetching anymore.
+  const { watchlist, loading } = useAuth();
 
-  // Fetch the initial watchlist when the component mounts
-  useEffect(() => {
-    const fetchWatchlist = async () => {
-      try {
-        setLoading(true);
-        const response = await getWatchlist();
-        // The API returns 'movie_id', but our MovieCard expects 'id'.
-        // We adapt the data here to make the component reusable.
-        const adaptedWatchlist = response.data.map(item => ({ ...item, id: item.movie_id }));
-        setWatchlist(adaptedWatchlist);
-      } catch (error) {
-        console.error("Failed to fetch watchlist", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchWatchlist();
-  }, []); // The empty array ensures this runs only once on mount
-
-  // This function will be passed down to the MovieCard.
-  // When a movie is removed, the card calls this function to update the list in this component's state.
-  const handleRemoveFromState = (movieIdToRemove) => {
-    setWatchlist(currentWatchlist => 
-      currentWatchlist.filter(movie => movie.id !== movieIdToRemove)
-    );
-  };
-  
+  // Show a loading state that is consistent with the global app loading
   if (loading) {
-    return <div className="text-center p-10">Loading your watchlist...</div>;
+    return (
+      <div className="container mx-auto px-4 sm:px-6 py-8">
+        <h1 className="text-4xl md:text-5xl font-bold text-slate-800 mb-8">My Watchlist</h1>
+        <div className="flex justify-center items-center h-64">
+          <div className="w-12 h-12 border-4 border-dashed rounded-full animate-spin border-cyan-500"></div>
+        </div>
+      </div>
+    );
   }
+  
+  // Animation variants for the container and grid items
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.05 } },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, scale: 0.9 },
+    visible: { opacity: 1, scale: 1 },
+  };
 
   return (
-    <div className="container mx-auto">
-      <h1 className="text-4xl font-bold mb-8">My Watchlist</h1>
+    <motion.div 
+      className="container mx-auto px-4 sm:px-6 py-8"
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+    >
+      <motion.h1 
+        className="text-4xl md:text-5xl font-bold text-slate-800 mb-12"
+        variants={itemVariants}
+      >
+        My Watchlist
+      </motion.h1>
       
       {watchlist.length > 0 ? (
         <motion.div 
-          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6"
-          initial="hidden"
-          animate="visible"
-          variants={{
-            visible: {
-              transition: { staggerChildren: 0.05 },
-            },
-          }}
+          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 md:gap-8"
+          variants={containerVariants}
         >
-          {watchlist.map(movie => (
+          {watchlist.map(item => (
             <motion.div
-              key={movie.id}
-              variants={{
-                hidden: { opacity: 0, scale: 0.8 },
-                visible: { opacity: 1, scale: 1 },
-              }}
-              layout // Animate position changes when an item is removed
+              key={item.movie_id}
+              variants={itemVariants}
+              layout // This animates the grid when an item is removed
+              exit={{ opacity: 0, scale: 0.8 }} // Animate item removal
             >
+              {/* 
+                The MovieCard now handles its own remove logic internally by calling the context.
+                We just need to pass it the correct movie data.
+                We map 'movie_id' to 'id' to keep the MovieCard's prop consistent.
+              */}
               <MovieCard 
-                movie={movie} 
-                onRemove={handleRemoveFromState} // Pass the handler as a prop
+                movie={{ ...item, id: item.movie_id }} 
               />
             </motion.div>
           ))}
         </motion.div>
       ) : (
-        <div className="text-center py-16 px-6 bg-gray-800/50 rounded-lg">
-          <p className="text-2xl font-semibold text-gray-300">Your watchlist is a blank canvas!</p>
-          <p className="text-gray-400 mt-2">Go find some movies you're in the mood for.</p>
-        </div>
+        // "Empty State" - shown when the watchlist array is empty
+        <motion.div 
+          className="text-center py-20 px-6 bg-slate-100/50 rounded-xl border-2 border-dashed border-slate-300"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+        >
+          <Film size={48} className="mx-auto text-slate-400 mb-4" />
+          <h2 className="text-2xl font-semibold text-slate-700">Your watchlist is a blank canvas!</h2>
+          <p className="text-slate-500 mt-2">Go find some movies you're in the mood for.</p>
+          <Link 
+            to="/" 
+            className="mt-6 inline-block px-6 py-2 font-semibold text-white bg-slate-800 rounded-full hover:bg-slate-900"
+          >
+            Find Flicks
+          </Link>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 };
 

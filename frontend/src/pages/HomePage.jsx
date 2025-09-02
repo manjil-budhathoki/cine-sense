@@ -1,60 +1,130 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/AuthContext';
+import { motion } from 'framer-motion';
+import { Wand2 } from 'lucide-react';
 
 const HomePage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  
-  // State to hold the user's typed mood
   const [moodText, setMoodText] = useState('');
 
-  const handleMoodSubmit = (e) => {
-    // Prevent the form from doing a full page reload
-    e.preventDefault(); 
+  // --- NEW: Effect to control page scrolling ---
+  useEffect(() => {
+    // When this component mounts (appears on screen), add 'overflow-hidden' to the body
+    document.body.classList.add('overflow-hidden');
 
+    // When the component unmounts (user navigates away), remove the class
+    // This is the "cleanup" function.
+    return () => {
+      document.body.classList.remove('overflow-hidden');
+    };
+  }, []); // The empty dependency array ensures this effect runs only once on mount and cleanup on unmount
+
+  const handleMoodSubmit = (e) => {
+    e.preventDefault();
     if (moodText.trim()) {
-      // Navigate to the recommendations page, making sure to encode the user's text
-      // so spaces and special characters are handled correctly in the URL.
       navigate(`/recommendations?mood=${encodeURIComponent(moodText.trim())}`);
     }
   };
 
+  const handleIdeaStarterClick = (text) => {
+    setMoodText(text);
+    navigate(`/recommendations?mood=${encodeURIComponent(text)}`);
+  };
+
+  const ideaStarters = [
+    'A mind-bending thriller',
+    'A feel-good comedy',
+    'An epic sci-fi adventure',
+    'A heartbreaking romance'
+  ];
+  
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.15, delayChildren: 0.2 } },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } },
+  };
+
   return (
-    <div className="container mx-auto flex flex-col items-center justify-center text-center h-[70vh]">
+    // --- KEY CHANGE ---
+    // This container now takes up the full screen height minus the navbar height.
+    // It uses flex to perfectly center its content.
+    <div className="h-[calc(100vh-68px)] w-full flex items-center justify-center">
       
-      {/* Sassy Welcome Message */}
-      <h1 className="text-4xl md:text-5xl font-bold mb-4">
-        Alright, <span className="text-indigo-400">{user?.username}</span>. Spill the tea.
-      </h1>
-      <p className="text-xl text-gray-400 mb-10">
-        What's the vibe today? Don't be shy.
-      </p>
+      <motion.div 
+        className="relative z-10 container mx-auto flex flex-col items-center justify-center text-center px-4"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        
+        <motion.h1 
+          className="text-4xl md:text-6xl font-black text-slate-800 mb-3 leading-tight"
+          variants={itemVariants}
+        >
+          Hey, <span className="text-cyan-600">{user?.username}</span>.
+          <br />
+          What's the mood?
+        </motion.h1>
 
-      {/* Mood Input Form */}
-      <form onSubmit={handleMoodSubmit} className="w-full max-w-lg">
-        <div className="relative">
-          <input
-            type="text"
-            value={moodText}
-            onChange={(e) => setMoodText(e.target.value)}
-            placeholder="e.g., 'something to watch after a long day' or 'epic space battle!'"
-            className="w-full px-6 py-4 text-lg text-white bg-gray-800 border-2 border-gray-700 rounded-full focus:outline-none focus:border-indigo-500 transition-colors duration-200"
-            autoFocus // Automatically focus the input field when the page loads
-          />
-          <button
-            type="submit"
-            className="absolute top-0 right-0 mt-2 mr-2 px-6 py-2 font-semibold text-white bg-indigo-600 rounded-full hover:bg-indigo-700 focus:outline-none transition-colors duration-200"
-          >
-            Find Flicks
-          </button>
-        </div>
-      </form>
-      
-      <p className="mt-6 text-sm text-gray-500">
-        The more you tell me, the better the recommendations. Try things like "a sad movie that will make me cry" or "a funny action movie".
-      </p>
+        <motion.p 
+          className="text-lg md:text-xl text-slate-600 mb-10 max-w-2xl"
+          variants={itemVariants}
+        >
+          Describe the kind of movie you want to see, and let the magic happen.
+        </motion.p>
 
+        <motion.form 
+          onSubmit={handleMoodSubmit} 
+          className="w-full max-w-xl"
+          variants={itemVariants}
+        >
+          <div className="relative">
+            <input
+              type="text"
+              value={moodText}
+              onChange={(e) => setMoodText(e.target.value)}
+              placeholder="e.g., 'a stylish heist movie with a clever twist'"
+              className="w-full pl-6 pr-28 py-4 text-base text-slate-900 bg-white/60 backdrop-blur-sm border-2 border-slate-300/70 rounded-full focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-300/50 transition-all duration-300 placeholder-slate-500"
+              autoFocus
+            />
+            <button
+              type="submit"
+              className="absolute top-1/2 right-2 transform -translate-y-1/2 flex items-center justify-center h-11 px-6 font-semibold text-white bg-slate-800 rounded-full hover:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-900 transition-all duration-300 disabled:opacity-50 disabled:bg-slate-600 disabled:cursor-not-allowed"
+              disabled={!moodText.trim()}
+              aria-label="Find Movies"
+            >
+              Find
+              <Wand2 size={16} className="ml-2" />
+            </button>
+          </div>
+        </motion.form>
+
+        <motion.div 
+          className="mt-12"
+          variants={itemVariants}
+        >
+          <p className="text-slate-600 mb-4">Or try one of these ideas:</p>
+          <div className="flex flex-wrap justify-center gap-3">
+            {ideaStarters.map(idea => (
+              <button 
+                key={idea}
+                onClick={() => handleIdeaStarterClick(idea)}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-white/60 backdrop-blur-sm rounded-full border border-slate-300 hover:bg-white hover:border-cyan-400 hover:text-cyan-600 transition-all duration-200 transform hover:scale-105"
+              >
+                {idea}
+              </button>
+            ))}
+          </div>
+        </motion.div>
+
+      </motion.div>
     </div>
   );
 };

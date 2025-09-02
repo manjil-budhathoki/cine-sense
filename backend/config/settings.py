@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -160,3 +161,12 @@ CSRF_COOKIE_SAMESITE = 'Lax'
 # Set to False if your frontend needs to read the CSRF token from cookies,
 # but for our session-based auth with exemption, it can be True.
 CSRF_COOKIE_HTTPONLY = True
+
+
+# Media files configuration (for user-uploaded content like profile pictures)
+# --------------------------------------------------------------------------
+# URL that will serve the media files
+MEDIA_URL = '/media/'
+
+# The absolute path to the directory where media files will be stored
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

@@ -12,14 +12,19 @@ export default defineConfig({
     )],
   server: {
     proxy: {
-      // any request that starts with '/api' will be proxied
+      // --- Rule #1: For API Calls ---
+      // This rule forwards any request starting with /api to your Django server.
       '/api': {
-        target: 'http://localhost:8000', // your Django server
+        target: 'http://localhost:8000',
         changeOrigin: true,
-        // The rewrite is optional, but it's good practice if your Django URLs don't start with /api
-        // In our case they do, so it's not strictly needed, but doesn't hurt.
-        // rewrite: (path) => path.replace(/^\/api/, '/api')
-      }
+      },
+
+      // --- NEW Rule #2: For Media Files ---
+      // This rule forwards any request starting with /media to your Django server.
+      '/media': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
     }
   }
 })

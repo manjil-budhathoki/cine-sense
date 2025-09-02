@@ -58,3 +58,46 @@ export const addToWatchlist = (movieData) => {
 export const removeFromWatchlist = (movieId) => {
   return apiClient.delete(`/watchlist/${movieId}/`);
 };
+
+export const getProfile = () => {
+  return apiClient.get('/profile/');
+};
+
+export const updateProfile = (formData) => {
+  // 'formData' will now be a FormData object, not a plain JSON object.
+  // Axios will automatically set the correct headers when it detects FormData.
+  return apiClient.put('/profile/', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+
+export const getSimilarMovies = (movieId) => {
+  const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+  if (!TMDB_API_KEY) {
+    return Promise.reject("API Key for TMDb is not configured.");
+  }
+  // The 'recommendations' endpoint in TMDb is their version of "similar movies"
+  return axios.get(`https://api.themoviedb.org/3/movie/${movieId}/recommendations?api_key=${TMDB_API_KEY}&language=en-US`);
+};
+
+export const getAdminStats = () => {
+  return apiClient.get('/admin/stats/');
+};
+
+export const getAllUsers = () => {
+  return apiClient.get('/admin/users/');
+};
+
+export const getUserById = (userId) => {
+  return apiClient.get(`/admin/users/${userId}/`);
+};
+
+export const updateUserAsAdmin = (userId, userData) => {
+  return apiClient.patch(`/admin/users/${userId}/`, userData);
+};
+
+export const deleteUserAsAdmin = (userId) => {
+  return apiClient.delete(`/admin/users/${userId}/`);
+};

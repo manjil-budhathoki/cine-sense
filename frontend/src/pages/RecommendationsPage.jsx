@@ -2,18 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { getRecommendations } from '../services/api';
 import MovieCard from '../components/MovieCard';
-import { motion, AnimatePresence } from 'framer-motion'; // For animations
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft } from 'lucide-react';
 
 // A custom hook to easily get URL query parameters
 function useQuery() {
   return new URLSearchParams(useLocation().search);
 }
 
-// A simple, stylish loading spinner component
+// A simple, stylish loading spinner component for the light theme
 const Spinner = () => (
   <div className="flex justify-center items-center h-64">
-    <div className="w-16 h-16 border-4 border-dashed rounded-full animate-spin border-indigo-400"></div>
-    <p className="ml-4 text-xl text-gray-400">Consulting the cinematic cosmos...</p>
+    <div className="w-12 h-12 border-4 border-dashed rounded-full animate-spin border-cyan-500"></div>
+    <p className="ml-4 text-lg text-slate-500">Finding the perfect flicks...</p>
   </div>
 );
 
@@ -21,15 +22,13 @@ const RecommendationsPage = () => {
   const query = useQuery();
   const mood = query.get('mood');
 
-  const [results, setResults] = useState(null); // Will hold the entire API response object
+  const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
-  // State for the "Load More" functionality
-  const [visibleCount, setVisibleCount] = useState(10); // Show 10 movies initially
+  const [visibleCount, setVisibleCount] = useState(10);
 
   useEffect(() => {
-    // Reset state when the mood changes to show loading spinner again
     setLoading(true);
     setResults(null);
     setVisibleCount(10);
@@ -40,7 +39,6 @@ const RecommendationsPage = () => {
           const response = await getRecommendations(mood);
           setResults(response.data);
         } catch (err) {
-          console.error("Failed to fetch recommendations:", err);
           setError('Oops! Couldn\'t find flicks for that vibe. Try another one.');
         } finally {
           setLoading(false);
@@ -48,71 +46,93 @@ const RecommendationsPage = () => {
       };
       fetchMovies();
     }
-  }, [mood]); // This effect re-runs whenever the 'mood' in the URL changes
+  }, [mood]);
 
   if (loading) return <Spinner />;
   if (error) return <p className="text-center text-red-500 mt-10">{error}</p>;
-  if (!results || !results.recommendations) return <p>No results found.</p>;
+  if (!results || !results.recommendations || results.recommendations.length === 0) {
+    return (
+      <div className="text-center py-20">
+        <h2 className="text-2xl font-semibold text-slate-700">No Movies Found</h2>
+        <p className="text-slate-500 mt-2">Our AI couldn't find a match for that mood. Try being more specific!</p>
+        <Link to="/" className="mt-6 inline-block px-6 py-2 font-semibold text-white bg-slate-800 rounded-full hover:bg-slate-900">
+          Try Again
+        </Link>
+      </div>
+    );
+  }
 
   const { detected_emotion_profile, recommendations } = results;
-
-  // Slice the recommendations array based on the visibleCount
   const visibleMovies = recommendations.slice(0, visibleCount);
 
-  return (
-    <div className="container mx-auto">
-      {/* Back Link */}
-      <Link to="/" className="text-indigo-400 hover:underline mb-8 inline-block">&larr; Try a Different Mood</Link>
+  // Get the top 3 emotions for a quick summary
+  const topEmotions = Object.entries(detected_emotion_profile)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 3)
+    .map(e => e[0]);
 
-      {/* Header and Explanation Section */}
-      <motion.div 
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="text-center mb-12"
-      >
-        <p className="text-gray-400 mb-2">You're feeling:</p>
-        <h1 className="text-3xl md:text-4xl font-bold mb-6 text-indigo-400 italic">"{results.user_mood_text}"</h1>
-        
-        {/* Detected Emotions - Explainability Feature */}
-        <div className="max-w-2xl mx-auto bg-gray-800/50 rounded-lg p-4">
-          <h2 className="text-lg font-semibold mb-3">Our AI thinks this means you want movies with a hint of...</h2>
-          <div className="flex flex-wrap justify-center gap-x-4 gap-y-2">
-            {Object.entries(detected_emotion_profile)
-              .sort(([, a], [, b]) => b - a) // Sort by score, descending
-              .filter(([, score]) => score > 0.1) // Only show significant emotions
-              .map(([emotion, score]) => (
-                <div key={emotion} className="text-sm bg-gray-700 rounded-full px-3 py-1 capitalize">
-                  {emotion}
+  return (
+    <div className="container mx-auto px-4 sm:px-6 py-8">
+      <Link to="/" className="text-slate-600 hover:text-cyan-600 transition-colors duration-200 mb-8 inline-flex items-center">
+        <ArrowLeft size={18} className="mr-2"/> Back & Try a Different Mood
+      </Link>
+
+      {/* --- Header Section --- */}
+      <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center mb-12">
+        {/* --- Left Side: Title --- */}
+        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5 }}>
+          <p className="text-slate-500">Based on your mood...</p>
+          <h1 className="text-4xl md:text-5xl font-bold text-slate-800 leading-tight mt-2">
+            "{results.user_mood_text}"
+          </h1>
+          <p className="mt-4 text-slate-600">
+            We found these movies with vibes of <span className="font-semibold text-cyan-600">{topEmotions.join(', ')}</span>, and more.
+          </p>
+        </motion.div>
+
+        {/* --- Right Side: AI Analysis Card --- */}
+        <motion.div 
+          className="bg-white/60 backdrop-blur-sm p-6 rounded-xl border border-slate-200/80"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <h2 className="font-bold text-slate-700 mb-3">AI Emotion Analysis</h2>
+          <div className="space-y-2">
+            {Object.entries(detected_emotion_profile).sort(([,a],[,b]) => b-a).map(([emotion, score]) => (
+              <div key={emotion} className="w-full">
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="capitalize font-medium text-slate-600">{emotion}</span>
+                  <span className="text-slate-500">{(score * 100).toFixed(0)}%</span>
                 </div>
+                <div className="w-full bg-slate-200/70 rounded-full h-2">
+                  <motion.div 
+                    className="bg-cyan-500 h-2 rounded-full"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${score * 100}%` }}
+                    transition={{ duration: 0.8, delay: 0.4 }}
+                  ></motion.div>
+                </div>
+              </div>
             ))}
           </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      </div>
 
-      {/* Movie Grid with Animation */}
+      {/* --- Movie Grid --- */}
       <motion.div 
-        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6"
+        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6 md:gap-8"
         initial="hidden"
         animate="visible"
-        variants={{
-          visible: {
-            transition: {
-              staggerChildren: 0.05, // Each child animates 0.05s after the previous one
-            },
-          },
-        }}
+        variants={{ visible: { transition: { staggerChildren: 0.05 } } }}
       >
         <AnimatePresence>
           {visibleMovies.map((movie) => (
              <motion.div
               key={movie.id}
-              variants={{
-                hidden: { opacity: 0, scale: 0.8 },
-                visible: { opacity: 1, scale: 1 },
-              }}
+              variants={{ hidden: { opacity: 0, scale: 0.8 }, visible: { opacity: 1, scale: 1 } }}
               exit={{ opacity: 0, scale: 0.8 }}
-              layout // This makes the grid animate nicely when items are added/removed
+              layout
             >
               <MovieCard movie={movie} />
             </motion.div>
@@ -120,14 +140,14 @@ const RecommendationsPage = () => {
         </AnimatePresence>
       </motion.div>
 
-      {/* Load More Button */}
+      {/* --- Load More Button --- */}
       {visibleCount < recommendations.length && (
         <div className="text-center mt-12">
           <button
             onClick={() => setVisibleCount(prevCount => prevCount + 10)}
-            className="px-8 py-3 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-indigo-500 transition-all duration-200 transform hover:scale-105"
+            className="px-8 py-3 bg-slate-800 text-white font-semibold rounded-full hover:bg-slate-900 transition-all duration-200 transform hover:scale-105"
           >
-            Load More Flicks
+            Load More
           </button>
         </div>
       )}

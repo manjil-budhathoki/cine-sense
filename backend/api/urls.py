@@ -2,7 +2,8 @@ from django.urls import path
 from .views import (
     RegisterView, LoginView, LogoutView, CurrentUserView,
     WatchlistListCreateView, WatchlistDestroyView,
-    RecommendationView
+    RecommendationView, ProfileView, AdminDashboardStatsView,
+    UserListView, UserDetailView
 )
 
 urlpatterns = [
@@ -18,4 +19,12 @@ urlpatterns = [
 
     # Recommendation URLS
     path('recommendations/', RecommendationView.as_view(), name='recommendations'),
+
+    # Profile URL
+    path('profile/', ProfileView.as_view(), name='user-profile'),
+
+     # --- NEW: Admin URL ---
+    path('admin/stats/', AdminDashboardStatsView.as_view(), name='admin-stats'),
+    path('admin/users/', UserListView.as_view(), name='admin-user-list'),
+    path('admin/users/<int:pk>/', UserDetailView.as_view(), name='admin-user-detail'),
 ]
